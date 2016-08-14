@@ -60,5 +60,6 @@ T=$(/bin/grep MemTotal /proc/meminfo | /bin/awk '{print $2}')
 AP=$(/bin/echo "scale=1; 100-(${A}*100)/${T}" | /usr/bin/bc)
 /bin/echo "MemUsagePct ${AP} Percent"
 ```
+It's as easy as that!
 
-Take a look at the included monitors for more examples.
+Take a look at the included monitors for (a couple) more examples.
