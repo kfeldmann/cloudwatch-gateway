@@ -1,4 +1,4 @@
-cwg: Metrics -0-> CloudWatch
+cwg: The CloudWatch gateway for custom metrics
 ============================
 
 ## Install
