@@ -18,6 +18,10 @@ cwg: The CloudWatch gateway for custom metrics
   `cloudwatch-gateway/monitors/<OS>/enabled`
 - To disable any monitors, jut move them outside
   of the `enabled` directory
+- To add custom monitors of your own, just move (or link) them
+  into the `enabled` directory. Monitors installed in this way
+  can be written in any language, and should simply print their
+  metrics to `stdout`
 
 ## Reap the benefits
 
@@ -34,14 +38,19 @@ from your application or from a script or helper app.
 
 First take a look at
 [the units that CloudWatch supports](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_concepts.html#Unit)
-and choose the appropriate one for your metric. All you have to
-do is periodically write a three-word line to the named pipe,
-`/var/opt/cloudwatch-gateway`.
+and choose the appropriate one for your metric.
 
-The format is:
+Create a script (in any language) to measure your metric value(s). Then
+simply add that script to the `cloudwatch-gateway/monitors/<OS>/enabled`
+directory. The script should run once (not loop) and write its metrics to
+`stdout`. The `run-monitors` cron job will run your custom monitor
+script every minute and pipe the output to the cloudwatch-gateway.
+
+The format of the metrics to be fed to `cwg` is:
 ```
 <MetricName> <NumericValue> <Unit>
 ```
+Multiple metrics can be sent at once, as long as they are separated by newlines.
 
 Example:
 ```
