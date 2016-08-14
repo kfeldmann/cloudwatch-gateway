@@ -1,0 +1,163 @@
+#!/usr/bin/python2.7 -O
+
+"""
+cwg - The CloudWatch Gateway
+
+Requires an instance role that grants access to:
+- cloudwatch:PutMetricData
+
+Run cwg from upstart (or systemd, or init, ...),
+reading from a named-pipe. Then just publish metrics
+to the pipe in the following format:
+
+MetricName Value Unit
+
+- MetricName must meet AWS guidelines for metric names
+- Value must be a number
+- Unit must be one of the CloudWatch unit names
+  (see list below in the code)
+"""
+
+import subprocess
+import sys
+import json
+import time
+
+
+AWSCLI='/usr/bin/aws'
+
+
+def usage():
+    sys.stderr.write("Usage: cwg region namespace\n")
+
+def _err(message):
+    sys.stdout.write("ERROR: %s\n" % message)
+    return None
+
+def call_by_args(region, cmdtuple, argtuple):
+    args = [
+           AWSCLI,
+           '--region', region,
+           ]
+    args.extend(cmdtuple)
+    if argtuple:
+        args.extend(argtuple)
+    try:
+        outdata = subprocess.check_output(args)
+    except Exception as ex:
+        _err('Failed to run %s %s %s: %s' \
+            % (AWSCLI, cmdtuple[0], cmdtuple[1], ex))
+        outdata = None
+    if outdata: # Some calls do not return data
+        try:
+            outdict = json.loads(outdata)
+        except Exception as ex:
+            _err(
+                """Failed to parse json response from %s %s %s.
+                Exception is: %s
+                JSON source:
+                %s
+                """ % (AWSCLI, cmdtuple[0], cmdtuple[1], ex, outdata))
+            outdict = None
+    else:
+        outdict = None
+    return outdict
+
+def valid_namespace(namespace):
+    if len(namespace) > 256:
+        return False
+    if (namespace.translate(None,
+            "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ" \
+            + "abcdefghijklmnopqrstuvwxyz.-_/#:") != ''):
+        return False
+    return True
+
+def valid_unit(unit):
+    if unit in [
+               "Seconds",
+               "Microseconds",
+               "Milliseconds",
+               "Bytes",
+               "Kilobytes",
+               "Megabytes",
+               "Gigabytes",
+               "Terabytes",
+               "Bits",
+               "Kilobits",
+               "Megabits",
+               "Gigabits",
+               "Terabits",
+               "Percent",
+               "Count",
+               "Bytes/Second",
+               "Kilobytes/Second",
+               "Megabytes/Second",
+               "Gigabytes/Second",
+               "Terabytes/Second",
+               "Bits/Second",
+               "Kilobits/Second",
+               "Megabits/Second",
+               "Gigabits/Second",
+               "Terabits/Second",
+               "Count/Second",
+               "None",
+               ]:
+        return True
+    else:
+        return False
+
+def valid_value(value):
+    if value.translate(None, '0123456789.-') == '':
+        return True
+    else:
+        return False
+
+
+if len(sys.argv) != 3:
+    usage()
+    raise SystemExit(1)
+
+region = sys.argv[1]
+namespace = sys.argv[2]
+
+if not valid_namespace(namespace):
+    _err("Invalid namespace (see AWS documentation): %s" % namespace)
+    raise SystemExit(2)
+
+data = []
+while True:
+    line = sys.stdin.readline()
+    if line == '':
+        if data:
+            #sys.stdout.write("sending %d metrics\n" % len(data))
+            #sys.stdout.flush()
+            call_by_args(
+                        region,
+                        ('cloudwatch', 'put-metric-data'),
+                        (
+                        '--namespace', namespace,
+                        '--metric-data', json.dumps(data),
+                        ))
+            data = []
+        else:
+            time.sleep(2)
+        continue
+    try:
+        name, value, unit = line.strip().split()
+    except ValueError:
+        _err("Malformed line: %s" % line)
+        continue
+    if not valid_unit(unit):
+        _err("Invalid unit (see AWS documentation): %s" % unit)
+        continue
+    if not valid_value(value):
+        _err("Invalid value (should be numeric [.0-9-]): %s" % value)
+        continue
+    sys.stdout.write("metric_namespace=%s %s=%s metric_unit=%s\n" \
+                    % (namespace, name, value, unit))
+    sys.stdout.flush()
+    data.append({
+               'MetricName': name,
+               'Value': float(value),
+               'Unit': unit,
+               })

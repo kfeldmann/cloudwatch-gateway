@@ -1,0 +1,7 @@
+#!/bin/sh
+
+MDIR=/opt/github.com/kfeldmann/cloudwatch-monitors/monitors
+OS=$(grep ^ID= /etc/os-release | cut -d\" -f 2)
+for f in $(ls ${MDIR}/${OS}/enabled/*); do
+  ${f} >> /var/opt/cloudwatch-gateway
+done
