@@ -11,9 +11,8 @@ cwg: The CloudWatch gateway for custom metrics
   archive](https://github.com/kfeldmann/cloudwatch-gateway/releases)
 - As root:
   - `tar xvzPf cloudwatch-gateway-*tgz`
-  - ```/opt/bin/github.com/kfeldmann/cloudwatch-gateway/bin/setup.sh
-       <region> <appname> <environment> <tier>``` (substitute your
-    particulars for the four arguments)
+  - ```/opt/bin/github.com/kfeldmann/cloudwatch-gateway/bin/setup.sh <region> <appname> <environment> <tier>```
+    (substitute your particulars for the four arguments)
 - Take a look at the monitors in
   `cloudwatch-gateway/monitors/<OS>/enabled`
 - To disable any monitors, jut move them outside
