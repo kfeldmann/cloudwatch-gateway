@@ -5,7 +5,7 @@ cwg: The CloudWatch gateway for custom metrics
 
 - Spin up instaces with an instance role that grants
   access to: `cloudwatch:PutMetricData`
-- Install Python 2.7 (it might already be installed)
+- Install Python (it might already be installed)
 - Install [aws-cli](https://aws.amazon.com/cli/)
 - [Download the latest cloudwatch-gateway release
   archive](https://github.com/kfeldmann/cloudwatch-gateway/releases)
@@ -16,11 +16,12 @@ cwg: The CloudWatch gateway for custom metrics
 - Take a look at the monitors in
   `cloudwatch-gateway/monitors/<OS>/enabled`
 - To disable any monitors, jut move them outside
-  of the `enabled` directory
+  of the `enabled` directory (the `disabled` directory is a convenient
+  place to store unused monitors)
 - To add custom monitors of your own, just move (or link) them
   into the `enabled` directory. Monitors installed in this way
   can be written in any language, and should simply print their
-  metrics to `stdout`
+  metrics to `stdout` ([see details below](#publish-your-own-custom-metrics)).
 
 ## Reap the benefits
 

@@ -1,4 +1,4 @@
-#!/usr/bin/python2.7 -O
+#!/usr/bin/env python
 
 """
 cwg - The CloudWatch Gateway
@@ -55,34 +55,40 @@ import json
 import time
 
 
-AWSCLI='/usr/bin/aws'
+AWSCLI = '/usr/bin/aws'
 
 
 def usage():
+    "Print the usage statement to stderr."
     sys.stderr.write("Usage: cwg region namespace\n")
 
 def _err(message):
+    "Print an ERROR message to stdout."
     sys.stdout.write("ERROR: %s\n" % message)
     return None
 
 def call_by_args(region, cmdtuple, argtuple):
+    """
+    Execute aws-cli and convert the JSON response
+    to a dictionary.
+    """
     args = [
-           AWSCLI,
-           '--region', region,
-           ]
+        AWSCLI,
+        '--region', region,
+    ]
     args.extend(cmdtuple)
     if argtuple:
         args.extend(argtuple)
     try:
         outdata = subprocess.check_output(args)
-    except Exception as ex:
+    except (OSError, subprocess.CalledProcessError) as ex:
         _err('Failed to run %s %s %s: %s' \
             % (AWSCLI, cmdtuple[0], cmdtuple[1], ex))
         outdata = None
     if outdata: # Some calls do not return data
         try:
             outdict = json.loads(outdata)
-        except Exception as ex:
+        except json.JSONDecodeError as ex:
             _err(
                 """Failed to parse json response from %s %s %s.
                 Exception is: %s
@@ -95,100 +101,110 @@ def call_by_args(region, cmdtuple, argtuple):
     return outdict
 
 def valid_namespace(namespace):
+    """
+    Verify that the provided namespace value meets
+    AWS requirements.
+    """
     if len(namespace) > 256:
         return False
     if (namespace.translate(None,
-            "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ" \
-            + "abcdefghijklmnopqrstuvwxyz.-_/#:") != ''):
+                            "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ" \
+                            + "abcdefghijklmnopqrstuvwxyz.-_/#:") != ''):
         return False
     return True
 
 def valid_unit(unit):
+    """
+    Verify that the provided unit name meets
+    AWS requirements.
+    """
     if unit in [
-               "Seconds",
-               "Microseconds",
-               "Milliseconds",
-               "Bytes",
-               "Kilobytes",
-               "Megabytes",
-               "Gigabytes",
-               "Terabytes",
-               "Bits",
-               "Kilobits",
-               "Megabits",
-               "Gigabits",
-               "Terabits",
-               "Percent",
-               "Count",
-               "Bytes/Second",
-               "Kilobytes/Second",
-               "Megabytes/Second",
-               "Gigabytes/Second",
-               "Terabytes/Second",
-               "Bits/Second",
-               "Kilobits/Second",
-               "Megabits/Second",
-               "Gigabits/Second",
-               "Terabits/Second",
-               "Count/Second",
-               "None",
-               ]:
+            "Seconds",
+            "Microseconds",
+            "Milliseconds",
+            "Bytes",
+            "Kilobytes",
+            "Megabytes",
+            "Gigabytes",
+            "Terabytes",
+            "Bits",
+            "Kilobits",
+            "Megabits",
+            "Gigabits",
+            "Terabits",
+            "Percent",
+            "Count",
+            "Bytes/Second",
+            "Kilobytes/Second",
+            "Megabytes/Second",
+            "Gigabytes/Second",
+            "Terabytes/Second",
+            "Bits/Second",
+            "Kilobits/Second",
+            "Megabits/Second",
+            "Gigabits/Second",
+            "Terabits/Second",
+            "Count/Second",
+            "None",
+        ]:
         return True
-    else:
-        return False
+    return False
 
 def valid_value(value):
+    "Validate that the provided value is numeric."
     if value.translate(None, '0123456789.-') == '':
         return True
-    else:
-        return False
+    return False
 
+
+### main ###############
 
 if len(sys.argv) != 3:
     usage()
     raise SystemExit(1)
 
-region = sys.argv[1]
-namespace = sys.argv[2]
+REGION = sys.argv[1]
+NAMESPACE = sys.argv[2]
 
-if not valid_namespace(namespace):
-    _err("Invalid namespace (see AWS documentation): %s" % namespace)
+if not valid_namespace(NAMESPACE):
+    _err("Invalid namespace (see AWS documentation): %s" % NAMESPACE)
     raise SystemExit(2)
 
-data = []
+DATA = []
 while True:
-    line = sys.stdin.readline()
-    if line == '':
-        if data:
-            #sys.stdout.write("sending %d metrics\n" % len(data))
-            #sys.stdout.flush()
+    LINE = sys.stdin.readline()
+    if LINE == '':
+        if DATA:
             call_by_args(
-                        region,
-                        ('cloudwatch', 'put-metric-data'),
-                        (
-                        '--namespace', namespace,
-                        '--metric-data', json.dumps(data),
-                        ))
-            data = []
+                REGION,
+                (
+                    'cloudwatch',
+                    'put-metric-data'
+                ),
+                (
+                    '--namespace', NAMESPACE,
+                    '--metric-data', json.dumps(DATA),
+                ))
+            DATA = []
         else:
             time.sleep(2)
         continue
     try:
-        name, value, unit = line.strip().split()
+        NAME, VALUE, UNIT = LINE.strip().split()
     except ValueError:
-        _err("Malformed line: %s" % line)
+        _err("Malformed line: %s" % LINE)
         continue
-    if not valid_unit(unit):
-        _err("Invalid unit (see AWS documentation): %s" % unit)
+    if not valid_unit(UNIT):
+        _err("Invalid unit (see AWS documentation): %s" % UNIT)
         continue
-    if not valid_value(value):
-        _err("Invalid value (should be numeric [.0-9-]): %s" % value)
+    if not valid_value(VALUE):
+        _err("Invalid value (should be numeric [.0-9-]): %s" % VALUE)
         continue
     sys.stdout.write("metric_namespace=%s %s=%s metric_unit=%s\n" \
-                    % (namespace, name, value, unit))
+                    % (NAMESPACE, NAME, VALUE, UNIT))
     sys.stdout.flush()
-    data.append({
-               'MetricName': name,
-               'Value': float(value),
-               'Unit': unit,
-               })
+    DATA.append({
+        'MetricName': NAME,
+        'Value': float(VALUE),
+        'Unit': UNIT,
+        })
